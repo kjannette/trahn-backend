@@ -32,6 +32,7 @@ import IUniswapV2Router02 from "@uniswap/v2-periphery/build/IUniswapV2Router02.j
 
 import { sleep, sleepSeconds } from "./sleep.js";
 import * as config from "./config.js";
+import { DuneClient } from "./duneClient.js";
 
 const ERC20_ABI = [
     {
@@ -346,6 +347,26 @@ class TrahnGridTradingBot {
             );
         }
 
+        // Dune Analytics setup for S/R calculation
+        this.duneApiKey = options.duneApiKey || "";
+        this.srMethod = options.srMethod || "simple";
+        this.srRefreshHours = options.srRefreshHours || 48;
+        this.srLookbackDays = options.srLookbackDays || 14;
+        this.lastSRRefresh = null;
+        this.supportResistance = null;
+
+        if (this.duneApiKey) {
+            this.duneClient = new DuneClient(this.duneApiKey, {
+                method: this.srMethod,
+                lookbackDays: this.srLookbackDays,
+                refreshHours: this.srRefreshHours,
+            });
+            console.log(`📊 [S/R] Dune Analytics configured: ${this.srMethod} method, ${this.srLookbackDays}-day lookback, ${this.srRefreshHours}h refresh`);
+        } else {
+            this.duneClient = null;
+            console.log("📊 [S/R] Dune API key not set - using fallback (current price as midpoint)");
+        }
+
         // Initialize state
         this.loadState();
     }
@@ -449,9 +470,66 @@ class TrahnGridTradingBot {
         }
     }
 
+    // ==================== Support/Resistance ====================
+
+    /**
+     * Fetch support/resistance levels from Dune Analytics
+     * Falls back to current price if Dune is unavailable
+     */
+    async fetchSupportResistance() {
+        if (!this.duneClient) {
+            console.log("📊 [S/R] No Dune client - using current price as midpoint");
+            const currentPrice = await this.fetchETHPrice();
+            return {
+                support: currentPrice * 0.9,  // Estimate: 10% below
+                resistance: currentPrice * 1.1, // Estimate: 10% above
+                midpoint: currentPrice,
+                method: "fallback",
+                lookbackDays: 0,
+            };
+        }
+
+        try {
+            const sr = await this.duneClient.fetchSupportResistance();
+            this.supportResistance = sr;
+            this.lastSRRefresh = Date.now();
+            return sr;
+        } catch (err) {
+            console.error(`📊 [S/R] Dune fetch failed: ${err.message}`);
+            console.log("📊 [S/R] Falling back to current price as midpoint");
+            
+            const currentPrice = await this.fetchETHPrice();
+            return {
+                support: currentPrice * 0.9,
+                resistance: currentPrice * 1.1,
+                midpoint: currentPrice,
+                method: "fallback",
+                lookbackDays: 0,
+            };
+        }
+    }
+
+    /**
+     * Check if S/R levels need to be refreshed
+     */
+    shouldRefreshSR() {
+        if (!this.lastSRRefresh) return true;
+        const ageMs = Date.now() - this.lastSRRefresh;
+        const refreshMs = this.srRefreshHours * 60 * 60 * 1000;
+        return ageMs >= refreshMs;
+    }
+
     // ==================== Grid Management ====================
 
     async initializeGrid(currentPrice = null) {
+        // Fetch S/R levels to determine the TRUE midpoint
+        const sr = await this.fetchSupportResistance();
+        
+        // Use S/R midpoint instead of arbitrary current price
+        const centerPrice = this.basePrice || sr.midpoint;
+        this.basePrice = centerPrice;
+        
+        // Get current price for validation
         if (!currentPrice) {
             currentPrice = await this.fetchETHPrice();
         }
@@ -460,8 +538,11 @@ class TrahnGridTradingBot {
             throw new Error("Cannot initialize grid: invalid ETH price");
         }
 
-        this.basePrice = this.basePrice || currentPrice;
-        const centerPrice = this.basePrice;
+        // Log S/R info
+        this.sendMessageToChat(
+            `📊 S/R Analysis (${sr.method}, ${sr.lookbackDays}d): Support $${sr.support.toFixed(2)} | Resistance $${sr.resistance.toFixed(2)} | Midpoint $${sr.midpoint.toFixed(2)}`,
+            "info"
+        );
         
         this.grid = [];
         const halfLevels = Math.floor(this.gridLevels / 2);

@@ -79,6 +79,57 @@ export const PAPER_STATE_FILE_PATH = process.env.PAPER_STATE_FILE_PATH ||
 export const PAPER_SLIPPAGE_PERCENT = parseFloat(process.env.PAPER_SLIPPAGE_PERCENT || "0.5");
 export const PAPER_SIMULATE_GAS = process.env.PAPER_SIMULATE_GAS !== "false"; // default true
 
+// Dune Analytics Configuration
+export const DUNE_API_KEY = process.env.DUNE_API_KEY || "";
+// Support/Resistance Method: "simple" (high/low) or "percentile" (5th/95th)
+export const SR_METHOD = process.env.SR_METHOD || "simple";
+// S/R Refresh interval in hours (default 48 hours)
+export const SR_REFRESH_HOURS = parseFloat(process.env.SR_REFRESH_HOURS || "48");
+// S/R Lookback period in days (default 14 days)
+export const SR_LOOKBACK_DAYS = parseInt(process.env.SR_LOOKBACK_DAYS || "14");
+
+/**
+ * Parse command line arguments
+ * Supported: --sr-method=simple|percentile --sr-refresh=<hours>
+ */
+export function parseCliArgs() {
+    const args = process.argv.slice(2);
+    const overrides = {};
+    
+    for (const arg of args) {
+        if (arg.startsWith("--sr-method=")) {
+            const method = arg.split("=")[1];
+            if (method === "simple" || method === "percentile") {
+                overrides.srMethod = method;
+            } else {
+                console.warn(`Invalid --sr-method value: ${method}. Using default.`);
+            }
+        } else if (arg.startsWith("--sr-refresh=")) {
+            const hours = parseFloat(arg.split("=")[1]);
+            if (!isNaN(hours) && hours > 0) {
+                overrides.srRefreshHours = hours;
+            } else {
+                console.warn(`Invalid --sr-refresh value: ${arg.split("=")[1]}. Using default.`);
+            }
+        } else if (arg.startsWith("--sr-lookback=")) {
+            const days = parseInt(arg.split("=")[1]);
+            if (!isNaN(days) && days > 0) {
+                overrides.srLookbackDays = days;
+            } else {
+                console.warn(`Invalid --sr-lookback value: ${arg.split("=")[1]}. Using default.`);
+            }
+        }
+    }
+    
+    return overrides;
+}
+
+// Parse CLI args and apply overrides
+const cliOverrides = parseCliArgs();
+export const EFFECTIVE_SR_METHOD = cliOverrides.srMethod || SR_METHOD;
+export const EFFECTIVE_SR_REFRESH_HOURS = cliOverrides.srRefreshHours || SR_REFRESH_HOURS;
+export const EFFECTIVE_SR_LOOKBACK_DAYS = cliOverrides.srLookbackDays || SR_LOOKBACK_DAYS;
+
 /**
  * Validate required configuration
  */
@@ -111,6 +162,11 @@ export function validateConfig() {
         if (PAPER_INITIAL_ETH <= 0 && PAPER_INITIAL_USDC <= 0) {
             errors.push("Paper trading requires at least some initial ETH or USDC");
         }
+    }
+    
+    // Dune API validation (warn only, not required)
+    if (!DUNE_API_KEY) {
+        console.warn("⚠️  DUNE_API_KEY not set - will use current price for grid center (fallback mode)");
     }
     
     return {
@@ -148,5 +204,11 @@ export function printConfig() {
     console.log(`Amount per Grid: $${AMOUNT_PER_GRID}`);
     console.log(`Slippage Tolerance: ${SLIPPAGE_TOLERANCE}%`);
     console.log(`Price Check Interval: ${PRICE_CHECK_INTERVAL_SECONDS}s`);
+    console.log("--------------------------------------");
+    console.log("📊 Support/Resistance Configuration:");
+    console.log(`  S/R Method: ${EFFECTIVE_SR_METHOD} (high/low)`);
+    console.log(`  S/R Refresh: every ${EFFECTIVE_SR_REFRESH_HOURS} hours`);
+    console.log(`  S/R Lookback: ${EFFECTIVE_SR_LOOKBACK_DAYS} days`);
+    console.log(`  Dune API: ${DUNE_API_KEY ? "✓ configured" : "✗ not set (fallback mode)"}`);
     console.log("======================================");
 }
