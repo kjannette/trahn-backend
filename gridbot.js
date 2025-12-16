@@ -32,7 +32,18 @@ import IUniswapV2Router02 from "@uniswap/v2-periphery/build/IUniswapV2Router02.j
 
 import { sleep, sleepSeconds } from "./sleep.js";
 import * as config from "./config.js";
-import { DuneClient } from "./duneClient.js";
+import { DuneApi } from "./api/duneApi.js";
+import { getHistoryStore } from "./data/historyStore.js";
+import {
+    GridLevel,
+    calculateMidpoint,
+    calculateGridLevels,
+    findTriggeredLevel,
+    getOppositeLevelIndex,
+    getGridStats,
+    formatGridDisplay,
+    createFallbackSR,
+} from "./strategy/gridStrategy.js";
 
 const ERC20_ABI = [
     {
@@ -78,49 +89,7 @@ const ERC20_ABI = [
     },
 ];
 
-/**
- * Grid Level represents a single price level in the grid
- * For ETH grid trading:
- * - price = ETH price in USD
- * - quantity = ETH quantity to trade at this level
- * - side = "buy" (buy ETH with USDC) or "sell" (sell ETH for USDC)
- */
-class GridLevel {
-    constructor(index, price, side, quantity, filled = false) {
-        this.index = index;
-        this.price = price; // ETH price in USD
-        this.side = side; // "buy" or "sell"
-        this.quantity = quantity; // ETH quantity
-        this.filled = filled;
-        this.filledAt = null;
-        this.txHash = null;
-    }
-
-    toJSON() {
-        return {
-            index: this.index,
-            price: this.price,
-            side: this.side,
-            quantity: this.quantity,
-            filled: this.filled,
-            filledAt: this.filledAt,
-            txHash: this.txHash,
-        };
-    }
-
-    static fromJSON(json) {
-        const level = new GridLevel(
-            json.index,
-            json.price,
-            json.side,
-            json.quantity,
-            json.filled
-        );
-        level.filledAt = json.filledAt;
-        level.txHash = json.txHash;
-        return level;
-    }
-}
+// GridLevel class is now imported from strategy/gridStrategy.js
 
 /**
  * PaperWallet - Virtual wallet for paper trading simulation
@@ -356,16 +325,20 @@ class TrahnGridTradingBot {
         this.supportResistance = null;
 
         if (this.duneApiKey) {
-            this.duneClient = new DuneClient(this.duneApiKey, {
+            this.duneApi = new DuneApi(this.duneApiKey, {
                 method: this.srMethod,
                 lookbackDays: this.srLookbackDays,
                 refreshHours: this.srRefreshHours,
             });
             console.log(`📊 [S/R] Dune Analytics configured: ${this.srMethod} method, ${this.srLookbackDays}-day lookback, ${this.srRefreshHours}h refresh`);
         } else {
-            this.duneClient = null;
+            this.duneApi = null;
             console.log("📊 [S/R] Dune API key not set - using fallback (current price as midpoint)");
         }
+
+        // History store for frontend charting
+        this.historyStore = getHistoryStore();
+        console.log("📈 [HISTORY] History store initialized for frontend charting");
 
         // Initialize state
         this.loadState();
@@ -424,6 +397,10 @@ class TrahnGridTradingBot {
             }
             
             this.lastETHPrice = price;
+            
+            // Record price for frontend charting
+            this.historyStore.recordPrice(price);
+            
             return price;
         } catch (err) {
             console.error(`Failed to fetch ETH price: ${err.message}`);
@@ -477,20 +454,14 @@ class TrahnGridTradingBot {
      * Falls back to current price if Dune is unavailable
      */
     async fetchSupportResistance() {
-        if (!this.duneClient) {
-            console.log("📊 [S/R] No Dune client - using current price as midpoint");
+        if (!this.duneApi) {
+            console.log("📊 [S/R] No Dune API - using current price as midpoint");
             const currentPrice = await this.fetchETHPrice();
-            return {
-                support: currentPrice * 0.9,  // Estimate: 10% below
-                resistance: currentPrice * 1.1, // Estimate: 10% above
-                midpoint: currentPrice,
-                method: "fallback",
-                lookbackDays: 0,
-            };
+            return createFallbackSR(currentPrice);
         }
 
         try {
-            const sr = await this.duneClient.fetchSupportResistance();
+            const sr = await this.duneApi.fetchSupportResistance();
             this.supportResistance = sr;
             this.lastSRRefresh = Date.now();
             return sr;
@@ -499,13 +470,7 @@ class TrahnGridTradingBot {
             console.log("📊 [S/R] Falling back to current price as midpoint");
             
             const currentPrice = await this.fetchETHPrice();
-            return {
-                support: currentPrice * 0.9,
-                resistance: currentPrice * 1.1,
-                midpoint: currentPrice,
-                method: "fallback",
-                lookbackDays: 0,
-            };
+            return createFallbackSR(currentPrice);
         }
     }
 
@@ -544,39 +509,12 @@ class TrahnGridTradingBot {
             "info"
         );
         
-        this.grid = [];
-        const halfLevels = Math.floor(this.gridLevels / 2);
-        
-        // Create grid levels above and below center ETH price
-        for (let i = -halfLevels; i <= halfLevels; i++) {
-            if (i === 0 && this.gridLevels % 2 === 0) continue; // Skip center for even grids
-            
-            const priceMultiplier = Math.pow(1 + this.gridSpacingPercent / 100, i);
-            const levelPrice = centerPrice * priceMultiplier;
-            
-            // Below center = buy ETH (price dropped), above center = sell ETH (price rose)
-            const side = i < 0 ? "buy" : "sell";
-            
-            // Calculate ETH quantity based on USD amount and ETH price at this level
-            const quantity = this.amountPerGrid / levelPrice;
-            
-            const level = new GridLevel(
-                this.grid.length,
-                levelPrice,
-                side,
-                quantity,
-                false
-            );
-            
-            this.grid.push(level);
-        }
-
-        // Sort by price ascending
-        this.grid.sort((a, b) => a.price - b.price);
-        
-        // Re-index after sort
-        this.grid.forEach((level, idx) => {
-            level.index = idx;
+        // Use strategy module to calculate grid levels
+        this.grid = calculateGridLevels({
+            centerPrice,
+            levelCount: this.gridLevels,
+            spacingPercent: this.gridSpacingPercent,
+            amountPerGrid: this.amountPerGrid,
         });
 
         this.saveState();
@@ -596,19 +534,8 @@ class TrahnGridTradingBot {
     }
 
     findTriggeredLevel(currentPrice) {
-        for (const level of this.grid) {
-            if (level.filled) continue;
-            
-            // Buy ETH when price drops to or below buy level
-            if (level.side === "buy" && currentPrice <= level.price) {
-                return level;
-            }
-            // Sell ETH when price rises to or above sell level
-            if (level.side === "sell" && currentPrice >= level.price) {
-                return level;
-            }
-        }
-        return null;
+        // Delegate to strategy module
+        return findTriggeredLevel(currentPrice, this.grid);
     }
 
     // ==================== Trading Execution ====================
@@ -706,6 +633,16 @@ class TrahnGridTradingBot {
             this.tradesExecuted++;
             this.saveState();
             
+            // Record trade for frontend charting
+            this.historyStore.recordTrade({
+                timestamp: Date.now(),
+                side: "buy",
+                price: currentPrice,
+                quantity: ethAmount,
+                gridLevel: level.index,
+                usdValue: usdcAmount,
+            });
+            
             // Reset opposite level for potential reverse trade
             this.maybeCreateOppositeLevel(level);
             
@@ -782,6 +719,16 @@ class TrahnGridTradingBot {
             this.tradesExecuted++;
             this.saveState();
             
+            // Record trade for frontend charting
+            this.historyStore.recordTrade({
+                timestamp: Date.now(),
+                side: "sell",
+                price: currentPrice,
+                quantity: ethAmount,
+                gridLevel: level.index,
+                usdValue: expectedUSDC,
+            });
+            
             // Reset opposite level for potential reverse trade
             this.maybeCreateOppositeLevel(level);
             
@@ -793,20 +740,18 @@ class TrahnGridTradingBot {
     }
 
     maybeCreateOppositeLevel(filledLevel) {
-        // When a level is filled, reset the opposite adjacent level for potential reverse trade
-        const oppositeLevel = filledLevel.side === "buy" 
-            ? filledLevel.index + 1 
-            : filledLevel.index - 1;
+        // Use strategy module to get opposite level index
+        const oppositeIndex = getOppositeLevelIndex(filledLevel, this.grid.length);
         
-        if (oppositeLevel >= 0 && oppositeLevel < this.grid.length) {
-            const adjacentLevel = this.grid[oppositeLevel];
+        if (oppositeIndex !== null) {
+            const adjacentLevel = this.grid[oppositeIndex];
             if (adjacentLevel.filled) {
                 adjacentLevel.filled = false;
                 adjacentLevel.filledAt = null;
                 adjacentLevel.txHash = null;
                 this.saveState();
                 
-                console.log(`Reset grid level ${oppositeLevel} for opposite trade`);
+                console.log(`Reset grid level ${oppositeIndex} for opposite trade`);
             }
         }
     }
@@ -998,25 +943,9 @@ class TrahnGridTradingBot {
     // ==================== Grid Display ====================
 
     printGridLevels() {
-        console.log("\n┌─────────────────────────────────────────────────┐");
-        console.log("│              📊 GRID LEVELS (USD)               │");
-        console.log("├─────────────────────────────────────────────────┤");
-        
-        // Sort by price descending for display (highest first)
-        const sortedGrid = [...this.grid].sort((a, b) => b.price - a.price);
-        
-        for (const level of sortedGrid) {
-            const sideIcon = level.side === "sell" ? "🔴 SELL" : "🟢 BUY ";
-            const status = level.filled ? "✓" : "○";
-            const priceStr = `$${level.price.toFixed(2)}`.padStart(10);
-            const qtyStr = `${level.quantity.toFixed(6)} ETH`.padStart(15);
-            
-            console.log(`│ ${status} ${sideIcon} @ ${priceStr} │ ${qtyStr} │`);
-        }
-        
-        console.log("├─────────────────────────────────────────────────┤");
-        console.log(`│  Center: $${(this.basePrice || 0).toFixed(2).padStart(8)}  │  $${this.amountPerGrid}/level  │`);
-        console.log("└─────────────────────────────────────────────────┘\n");
+        // Delegate to strategy module for display formatting
+        const display = formatGridDisplay(this.grid, this.basePrice, this.amountPerGrid);
+        console.log("\n" + display + "\n");
     }
 
     // ==================== Main Loop ====================
@@ -1149,19 +1078,19 @@ class TrahnGridTradingBot {
 
     shutdown() {
         this.running = false;
+        // Flush any pending history data
+        this.historyStore.flush();
+        console.log("📈 [HISTORY] Final flush completed");
     }
 
     // ==================== Utility Methods ====================
 
     getGridSummary() {
+        // Use strategy module for grid stats
+        const stats = getGridStats(this.grid);
         return {
-            levels: this.grid.length,
+            ...stats,
             basePrice: this.basePrice,
-            lowestPrice: this.grid[0]?.price,
-            highestPrice: this.grid[this.grid.length - 1]?.price,
-            filledLevels: this.grid.filter(l => l.filled).length,
-            pendingBuys: this.grid.filter(l => l.side === "buy" && !l.filled).length,
-            pendingSells: this.grid.filter(l => l.side === "sell" && !l.filled).length,
             tradesExecuted: this.tradesExecuted,
             totalProfit: this.totalProfit,
         };
@@ -1185,4 +1114,5 @@ class TrahnGridTradingBot {
     }
 }
 
-export { TrahnGridTradingBot, GridLevel, PaperWallet };
+// Re-export GridLevel from strategy module for external use
+export { TrahnGridTradingBot, PaperWallet, GridLevel };

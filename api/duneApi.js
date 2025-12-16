@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 
 /**
- * Dune Analytics Client
+ * Dune Analytics API
  * 
  * Fetches support/resistance levels for ETH from Dune Analytics.
  * Used to calculate the true midpoint for grid trading.
  */
 
 /**
- * DuneClient - Fetches S/R levels from Dune Analytics
+ * DuneApi - Fetches S/R levels from Dune Analytics
  */
-class DuneClient {
+class DuneApi {
     constructor(apiKey, options = {}) {
         this.apiKey = apiKey;
         this.baseUrl = "https://api.dune.com/api/v1";
@@ -216,5 +216,5 @@ class DuneClient {
     }
 }
 
-export { DuneClient };
+export { DuneApi };
 
