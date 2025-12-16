@@ -1,0 +1,42 @@
+{
+    "name": "trahn-grid-trader",
+    "version": "1.0.0",
+    "description": "Grid trading bot for Uniswap V2/V3 with dynamic grid management",
+    "main": "./main.js",
+    "license": "MIT",
+    "type": "module",
+    "dependencies": {
+        "@ethersproject/address": "^5.7.0",
+        "@ethersproject/contracts": "^5.7.0",
+        "@ethersproject/providers": "^5.7.0",
+        "@ethersproject/solidity": "^5.7.0",
+        "@uniswap/sdk": "^3.0.3",
+        "@uniswap/v2-periphery": "^1.1.0-beta.0",
+        "coingecko-api": "^1.0.10",
+        "dotenv": "^16.3.1",
+        "ethereumjs-tx": "^2.1.2",
+        "ethers": "^5.7.2",
+        "got": "^13.0.0",
+        "web3": "^4.3.0"
+    },
+    "devDependencies": {
+        "jest": "^29.7.0",
+        "prettier": "^3.1.0"
+    },
+    "prettier": {
+        "tabWidth": 4,
+        "semi": true,
+        "singleQuote": false
+    },
+    "scripts": {
+        "start": "node main.js",
+        "dev": "node --watch main.js",
+        "lint": "prettier --check .",
+        "format": "prettier --write .",
+        "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
+    },
+    "engines": {
+        "node": ">=18.0.0"
+    }
+}
+
