@@ -17,7 +17,7 @@ const __dirname = dirname(__filename);
 
 // Data directories
 const BACKEND_DATA_DIR = path.join(__dirname);
-const FRONTEND_DATA_DIR = path.join(__dirname, "../../frontend/data");
+const FRONTEND_DATA_DIR = path.join(__dirname, "../../frontend/public/data");
 
 /**
  * Get the "trading day" date string for a given timestamp.
