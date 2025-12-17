@@ -32,13 +32,17 @@ class DuneApi {
         console.log("📊 [DUNE] Executing S/R query...");
 
         // Step 1: Submit query for execution
-        const executeResponse = await fetch(`${this.baseUrl}/query/execute`, {
+        // Using the correct endpoint for executing raw SQL: /api/v1/sql/execute
+        const executeResponse = await fetch(`${this.baseUrl}/sql/execute`, {
             method: "POST",
             headers: {
                 "X-Dune-API-Key": this.apiKey,
                 "Content-Type": "application/json",
             },
-            body: JSON.stringify({ query_sql: sql }),
+            body: JSON.stringify({ 
+                sql: sql,
+                performance: "medium" // Optional: "medium" or "large"
+            }),
         });
 
         if (!executeResponse.ok) {
@@ -47,10 +51,11 @@ class DuneApi {
         }
 
         const executeResult = await executeResponse.json();
-        const executionId = executeResult.execution_id;
+        // Dune API returns execution_id in the response
+        const executionId = executeResult.execution_id || executeResult.executionId;
 
         if (!executionId) {
-            throw new Error("Dune did not return an execution ID");
+            throw new Error(`Dune did not return an execution ID. Response: ${JSON.stringify(executeResult)}`);
         }
 
         console.log(`📊 [DUNE] Query submitted, execution ID: ${executionId}`);
@@ -77,7 +82,7 @@ class DuneApi {
             const statusResult = await statusResponse.json();
             const state = statusResult.state;
 
-            if (state === "QUERY_STATE_COMPLETED") {
+            if (state === "QUERY_STATE_COMPLETED" || state === "completed") {
                 // Step 3: Fetch results
                 const resultsResponse = await fetch(
                     `${this.baseUrl}/execution/${executionId}/results`,
@@ -91,8 +96,8 @@ class DuneApi {
                 }
 
                 const resultsData = await resultsResponse.json();
-                return resultsData.result?.rows || [];
-            } else if (state === "QUERY_STATE_FAILED") {
+                return resultsData.result?.rows || resultsData.rows || [];
+            } else if (state === "QUERY_STATE_FAILED" || state === "failed") {
                 throw new Error(`Dune query failed: ${statusResult.error || "Unknown error"}`);
             }
 

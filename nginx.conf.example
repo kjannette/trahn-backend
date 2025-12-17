@@ -1,0 +1,15 @@
+# trahn.trade - basic nginx config
+# After this works, run: certbot --nginx -d trahn.trade -d www.trahn.trade
+
+server {
+    listen 80;
+    server_name trahn.trade www.trahn.trade;
+
+    root /var/trahn-frontend_NEW12.15/dist;
+    index index.html;
+
+    # React SPA - fallback to index.html
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
