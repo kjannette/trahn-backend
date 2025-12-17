@@ -187,6 +187,9 @@ class HistoryStore {
         // Get list of available days
         const availableDays = this.getAvailableDays();
         
+        // Get grid data from bot state file
+        const grid = this.getGridFromState();
+        
         // Write current day data for frontend
         const frontendData = {
             currentDay: today,
@@ -194,9 +197,33 @@ class HistoryStore {
             lastUpdate: Date.now(),
             prices: prices,
             trades: trades,
+            grid: grid,
         };
         
         this.saveJson(path.join(FRONTEND_DATA_DIR, "current.json"), frontendData);
+    }
+    
+    /**
+     * Get grid levels from bot state file
+     * @returns {Array} Array of grid levels with price and side
+     */
+    getGridFromState() {
+        try {
+            const stateFilePath = path.join(__dirname, "../trahn_grid_trader.state.json");
+            if (fs.existsSync(stateFilePath)) {
+                const stateData = JSON.parse(fs.readFileSync(stateFilePath, "utf8"));
+                if (stateData.grid && Array.isArray(stateData.grid)) {
+                    return stateData.grid.map(level => ({
+                        price: level.price,
+                        side: level.side,
+                        filled: level.filled
+                    }));
+                }
+            }
+        } catch (err) {
+            console.warn(`Failed to read grid from state: ${err.message}`);
+        }
+        return [];
     }
 
     /**
