@@ -126,6 +126,12 @@ async function runBot() {
         paperStateFilePath: config.PAPER_STATE_FILE_PATH,
         paperSlippagePercent: config.PAPER_SLIPPAGE_PERCENT,
         paperSimulateGas: config.PAPER_SIMULATE_GAS,
+        
+        // Dune Analytics / Support-Resistance
+        duneApiKey: config.DUNE_API_KEY,
+        srMethod: config.EFFECTIVE_SR_METHOD,
+        srRefreshHours: config.EFFECTIVE_SR_REFRESH_HOURS,
+        srLookbackDays: config.EFFECTIVE_SR_LOOKBACK_DAYS,
     });
 
     // Handle graceful shutdown
