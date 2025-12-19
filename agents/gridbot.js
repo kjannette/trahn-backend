@@ -794,7 +794,16 @@ class TrahnGridTradingBot {
 
     // Swap USDC for ETH (buying ETH)
     async swapUSDCForETH(usdcAmount, minETHOut) {
-        // First ensure USDC allowance
+        // Paper mode: validation already done, return mock result
+        if (this.paperTrading) {
+            const fakeTxHash = "0xPAPER_SWAP_" + Date.now().toString(16);
+            return {
+                transactionHash: fakeTxHash,
+                simulated: true,
+            };
+        }
+        
+        // Live mode: ensure USDC allowance
         await this.ensureAllowance(usdcAmount);
         
         const path = [this.quoteToken.address, WETH[this.chainId].address];
@@ -840,6 +849,15 @@ class TrahnGridTradingBot {
 
     // Swap ETH for USDC (selling ETH)
     async swapETHForUSDC(ethAmount) {
+        // Paper mode: validation already done, return mock result
+        if (this.paperTrading) {
+            const fakeTxHash = "0xPAPER_SWAP_" + Date.now().toString(16);
+            return {
+                transactionHash: fakeTxHash,
+                simulated: true,
+            };
+        }
+        
         const path = [WETH[this.chainId].address, this.quoteToken.address];
         const deadline = Math.floor(Date.now() / 1000) + 60 * 20;
         
@@ -877,6 +895,12 @@ class TrahnGridTradingBot {
     }
 
     async ensureAllowance(usdcAmount) {
+        // Paper mode: skip allowance check
+        if (this.paperTrading) {
+            console.log(`[PAPER] Skipping ${this.quoteTokenSymbol} allowance check (paper mode)`);
+            return;
+        }
+        
         const contract = new this.web3.eth.Contract(ERC20_ABI, this.quoteTokenAddress);
         const allowance = await contract.methods
             .allowance(this.walletAddress, config.UNISWAP_ROUTER_ADDRESS)
@@ -914,39 +938,25 @@ class TrahnGridTradingBot {
     }
 
     async signAndSend(txo) {
-        // Paper trading mode - simulate transaction via eth_call
+        // Paper trading mode - mock successful transaction
+        // Validation already done by PaperWallet (balance checks, etc.)
+        // Skip blockchain simulation since paper wallet is virtual
         if (this.paperTrading) {
-            console.log("📝 [PAPER] Simulating transaction via eth_call...");
-            try {
-                const simulationResult = await this.web3.eth.call({
-                    to: txo.to,
-                    from: txo.from,
-                    data: txo.data,
-                    value: txo.value,
-                });
-                console.log("📝 [PAPER] Simulation successful!");
-                
-                // Generate a fake transaction hash for tracking
-                const fakeTxHash = "0xPAPER_" + Date.now().toString(16) + "_" + Math.random().toString(16).slice(2, 10);
-                
-                this.sendMessageToChat(
-                    `📝 [PAPER] Simulated TX: ${fakeTxHash.slice(0, 24)}...`,
-                    "info"
-                );
-                
-                return {
-                    transactionHash: fakeTxHash,
-                    simulated: true,
-                    simulationResult: simulationResult,
-                };
-            } catch (err) {
-                console.error("📝 [PAPER] Simulation FAILED:", err.message);
-                this.sendMessageToChat(
-                    `📝 [PAPER] Simulation failed: ${err.message}`,
-                    "error"
-                );
-                throw err;
-            }
+            console.log("[PAPER] Mocking transaction (paper mode)...");
+            
+            // Generate a fake transaction hash for tracking
+            const fakeTxHash = "0xPAPER_" + Date.now().toString(16) + "_" + Math.random().toString(16).slice(2, 10);
+            
+            console.log("[PAPER] Transaction mocked successfully");
+            this.sendMessageToChat(
+                `[PAPER] Simulated TX: ${fakeTxHash.slice(0, 24)}...`,
+                "info"
+            );
+            
+            return {
+                transactionHash: fakeTxHash,
+                simulated: true,
+            };
         }
         
         // Live trading mode - sign and broadcast real transaction
