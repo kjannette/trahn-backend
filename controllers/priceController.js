@@ -57,6 +57,7 @@ export class PriceController {
 
     /**
      * Get available trading days
+     * Returns dates as YYYY-MM-DD strings
      */
     async getAvailableDays() {
         const result = await query(
@@ -66,7 +67,16 @@ export class PriceController {
              LIMIT 30`
         );
         
-        return result.rows.map(row => row.trading_day);
+        // Convert Date objects to YYYY-MM-DD strings
+        return result.rows.map(row => {
+            if (typeof row.trading_day === 'string') {
+                // If already a string, extract date part
+                return row.trading_day.split('T')[0];
+            }
+            // If Date object, convert to string
+            const date = new Date(row.trading_day);
+            return date.toISOString().split('T')[0];
+        });
     }
 
     /**
