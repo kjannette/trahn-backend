@@ -3,14 +3,22 @@
 import got from "got";
 
 /**
+ * Notification Service Configuration
+ */
+
+// Notification Configuration (not secrets - these are service settings)
+export const WEBHOOK_URL = process.env.WEBHOOK_URL || "";
+export const BOT_NAME = "TrahnGridTrader";
+
+/**
  * Creates a chat notification sender function
  * Supports Slack, Discord, and generic webhooks
  * 
- * @param {string} webhookURL - The webhook URL to send messages to
- * @param {string} botName - The name to display for the bot
+ * @param {string} webhookURL - The webhook URL to send messages to (optional, uses WEBHOOK_URL constant if not provided)
+ * @param {string} botName - The name to display for the bot (optional, uses BOT_NAME constant if not provided)
  * @returns {Function} - Async function to send messages
  */
-function getChatSender(webhookURL, botName) {
+export function getChatSender(webhookURL = WEBHOOK_URL, botName = BOT_NAME) {
     return async (msg, level = "info") => {
         const timestamp = new Date().toISOString();
         const emoji = getEmoji(level);
@@ -71,6 +79,4 @@ function formatPayload(webhookURL, msg, botName) {
         username: botName,
     };
 }
-
-export { getChatSender };
 

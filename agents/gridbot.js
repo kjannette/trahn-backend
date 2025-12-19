@@ -30,10 +30,10 @@ import {
 
 import IUniswapV2Router02 from "@uniswap/v2-periphery/build/IUniswapV2Router02.json" with { type: "json" };
 
-import { sleep, sleepSeconds } from "./sleep.js";
-import * as config from "./config.js";
-import { DuneApi } from "./api/duneApi.js";
-import { getHistoryStore } from "./data/historyStore.js";
+import { sleep, sleepSeconds } from "../utilities/sleep.js";
+import * as config from "../configuration/config.js";
+import { DuneApi } from "../api/duneApi.js";
+import { getHistoryStore } from "../data/historyStore.js";
 import {
     GridLevel,
     calculateMidpoint,
@@ -43,7 +43,13 @@ import {
     getGridStats,
     formatGridDisplay,
     createFallbackSR,
-} from "./strategy/gridStrategy.js";
+} from "../services/strategy/gridStrategy.js";
+
+/**
+ * Explorer Configuration
+ * Used for displaying transaction links
+ */
+const EXPLORER_TX_PREFIX = "https://etherscan.io/tx/";
 
 const ERC20_ABI = [
     {
@@ -933,7 +939,7 @@ class TrahnGridTradingBot {
         const result = await this.web3.eth.sendSignedTransaction(serializedTx);
         
         this.sendMessageToChat(
-            `TX confirmed: ${config.EXPLORER_TX_PREFIX}${result.transactionHash}`,
+            `TX confirmed: ${EXPLORER_TX_PREFIX}${result.transactionHash}`,
             "success"
         );
         

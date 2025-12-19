@@ -29,10 +29,9 @@ class DuneApi {
             throw new Error("Dune API key not configured");
         }
 
-        console.log("📊 [DUNE] Executing S/R query...");
+        console.log("[DUNE] Executing S/R query...");
 
-        // Step 1: Submit query for execution
-        // Using the correct endpoint for executing raw SQL: /api/v1/sql/execute
+        // Step 1: Submit query - endpoint for executing raw SQL: /api/v1/sql/execute
         const executeResponse = await fetch(`${this.baseUrl}/sql/execute`, {
             method: "POST",
             headers: {
@@ -151,7 +150,7 @@ class DuneApi {
         if (!forceRefresh && this.cachedResult && this.lastFetch) {
             const cacheAge = Date.now() - this.lastFetch;
             if (cacheAge < this.cacheValidMs) {
-                console.log(`📊 [DUNE] Using cached S/R data (age: ${(cacheAge / 1000 / 60).toFixed(1)} min)`);
+                console.log(`[DUNE] Using cached S/R data (age: ${(cacheAge / 1000 / 60).toFixed(1)} min)`);
                 return this.cachedResult;
             }
         }
@@ -164,6 +163,17 @@ class DuneApi {
         }
 
         const row = rows[0];
+        
+        // ============================================
+        // DUNE API RAW RESPONSE LOGGING
+        // ============================================
+        console.log("\n" + "=".repeat(60));
+        console.log("📊 DUNE API RAW RESPONSE:");
+        console.log("=".repeat(60));
+        console.log(JSON.stringify(row, null, 2));
+        console.log("=".repeat(60) + "\n");
+        // ============================================
+        
         const result = {
             support: parseFloat(row.support),
             resistance: parseFloat(row.resistance),

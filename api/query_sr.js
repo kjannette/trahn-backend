@@ -2,13 +2,13 @@
 
 /**
  * Quick script to query 14-day simple S/R midpoint from Dune Analytics
- * Usage: node query_sr.js
+ * Usage: node api/query_sr.js
  */
 
 import dotenv from "dotenv";
 dotenv.config();
 
-import { DuneApi } from "./api/duneApi.js";
+import { DuneApi } from "./duneApi.js";
 
 async function main() {
     const apiKey = process.env.DUNE_API_KEY;
@@ -53,4 +53,3 @@ async function main() {
 }
 
 await main();
-

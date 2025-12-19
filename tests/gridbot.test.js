@@ -79,18 +79,18 @@ describe("Grid Configuration", () => {
 // Smoke test to ensure modules load
 describe("Module Loading", () => {
     test("should import sleep utilities", async () => {
-        const { sleep, sleepSeconds } = await import("./sleep.js");
+        const { sleep, sleepSeconds } = await import("../utilities/sleep.js");
         expect(typeof sleep).toBe("function");
         expect(typeof sleepSeconds).toBe("function");
     });
 
     test("should import chat utilities", async () => {
-        const { getChatSender } = await import("./chat.js");
+        const { getChatSender } = await import("../services/notifications/chat.js");
         expect(typeof getChatSender).toBe("function");
     });
 
     test("should import config", async () => {
-        const config = await import("./config.js");
+        const config = await import("../configuration/config.js");
         expect(config.GRID_LEVELS).toBeDefined();
         expect(config.validateConfig).toBeDefined();
     });

@@ -4,12 +4,19 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import * as util from "util";
-import { TrahnGridTradingBot } from "./gridbot.js";
-import { getChatSender } from "./chat.js";
-import { sleep } from "./sleep.js";
-import * as config from "./config.js";
+import { TrahnGridTradingBot } from "./agents/gridbot.js";
+import { getChatSender } from "./services/notifications/chat.js";
+import { sleep } from "./utilities/sleep.js";
+import * as config from "./configuration/config.js";
+import * as gridConfig from "./services/analytics/gridAnalytics.js";
 
-const sendMessageToChat = getChatSender(config.WEBHOOK_URL, config.BOT_NAME);
+/**
+ * API Endpoint Configuration
+ * This is where the bot connects to interact with Ethereum
+ */
+const ETHEREUM_API_ENDPOINT = process.env.ETHEREUM_API_ENDPOINT || "";
+
+const sendMessageToChat = getChatSender();
 
 async function main() {
     console.log(`
@@ -53,8 +60,23 @@ async function main() {
         console.error("\nPlease check your .env file and try again.");
         process.exit(1);
     }
+    
+    // Validate API endpoint
+    if (!ETHEREUM_API_ENDPOINT) {
+        console.error("Configuration error: ETHEREUM_API_ENDPOINT is required in .env");
+        process.exit(1);
+    }
 
     config.printConfig();
+    
+    // Print grid configuration
+    console.log("\n📊 Grid Analytics Configuration:");
+    console.log(`  Grid Levels: ${gridConfig.GRID_LEVELS}`);
+    console.log(`  Grid Spacing: ${gridConfig.GRID_SPACING_PERCENT}%`);
+    console.log(`  Amount per Grid: $${gridConfig.AMOUNT_PER_GRID}`);
+    console.log(`  Slippage Tolerance: ${gridConfig.SLIPPAGE_TOLERANCE}%`);
+    console.log(`  Price Check Interval: ${gridConfig.PRICE_CHECK_INTERVAL_SECONDS}s`);
+    console.log("======================================\n");
 
     const modeLabel = config.PAPER_TRADING_ENABLED ? "📝 PAPER MODE" : "💰 LIVE MODE";
     sendMessageToChat(
@@ -88,7 +110,7 @@ async function runBot() {
         // Wallet
         walletAddress: config.WALLET_ADDRESS,
         privateKey: config.PRIVATE_KEY,
-        apiEndpoint: config.ETHEREUM_API_ENDPOINT,
+        apiEndpoint: ETHEREUM_API_ENDPOINT,
         chainId: config.CHAIN_ID,
 
         // Quote Token (stablecoin for trading against ETH)
@@ -97,21 +119,21 @@ async function runBot() {
         quoteTokenDecimals: config.QUOTE_TOKEN_DECIMALS,
 
         // Grid
-        gridLevels: config.GRID_LEVELS,
-        gridSpacingPercent: config.GRID_SPACING_PERCENT,
-        amountPerGrid: config.AMOUNT_PER_GRID,
-        basePrice: config.GRID_BASE_PRICE,
+        gridLevels: gridConfig.GRID_LEVELS,
+        gridSpacingPercent: gridConfig.GRID_SPACING_PERCENT,
+        amountPerGrid: gridConfig.AMOUNT_PER_GRID,
+        basePrice: gridConfig.GRID_BASE_PRICE,
 
         // Trading
-        slippageTolerance: config.SLIPPAGE_TOLERANCE,
-        gasMultiplier: config.GAS_MULTIPLIER,
-        gasLimit: config.GAS_LIMIT,
-        minProfitPercent: config.MIN_PROFIT_PERCENT,
+        slippageTolerance: gridConfig.SLIPPAGE_TOLERANCE,
+        gasMultiplier: gridConfig.GAS_MULTIPLIER,
+        gasLimit: gridConfig.GAS_LIMIT,
+        minProfitPercent: gridConfig.MIN_PROFIT_PERCENT,
 
         // Timing
-        priceCheckIntervalSeconds: config.PRICE_CHECK_INTERVAL_SECONDS,
-        statusReportIntervalMinutes: config.STATUS_REPORT_INTERVAL_MINUTES,
-        postTradeCooldownSeconds: config.POST_TRADE_COOLDOWN_SECONDS,
+        priceCheckIntervalSeconds: gridConfig.PRICE_CHECK_INTERVAL_SECONDS,
+        statusReportIntervalMinutes: gridConfig.STATUS_REPORT_INTERVAL_MINUTES,
+        postTradeCooldownSeconds: gridConfig.POST_TRADE_COOLDOWN_SECONDS,
 
         // State
         stateFilePath: config.STATE_FILE_PATH,
@@ -129,9 +151,9 @@ async function runBot() {
         
         // Dune Analytics / Support-Resistance
         duneApiKey: config.DUNE_API_KEY,
-        srMethod: config.EFFECTIVE_SR_METHOD,
-        srRefreshHours: config.EFFECTIVE_SR_REFRESH_HOURS,
-        srLookbackDays: config.EFFECTIVE_SR_LOOKBACK_DAYS,
+        srMethod: config.SR_METHOD,
+        srRefreshHours: config.SR_REFRESH_HOURS,
+        srLookbackDays: config.SR_LOOKBACK_DAYS,
     });
 
     // Handle graceful shutdown
