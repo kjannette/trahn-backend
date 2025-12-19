@@ -72,6 +72,36 @@ export class SupportResistanceController {
         const refreshMs = refreshHours * 60 * 60 * 1000;
         return ageMs >= refreshMs;
     }
+
+    /**
+     * Check if S/R has changed significantly compared to previous
+     * @param {Object} newSR - New S/R data
+     * @param {number} thresholdPercent - Threshold for significant change (default 5%)
+     * @returns {Object} Change analysis
+     */
+    async checkSignificantChange(newSR, thresholdPercent = 5) {
+        const previous = await this.getLatestSR();
+        
+        if (!previous) {
+            return { 
+                hasChanged: true, 
+                changePercent: null, 
+                previous: null,
+                reason: 'First S/R fetch',
+            };
+        }
+        
+        const changePercent = Math.abs((newSR.midpoint - previous.midpoint) / previous.midpoint * 100);
+        
+        return {
+            hasChanged: changePercent >= thresholdPercent,
+            changePercent: changePercent.toFixed(2),
+            previous,
+            reason: changePercent >= thresholdPercent 
+                ? `Midpoint changed ${changePercent.toFixed(2)}%`
+                : 'S/R stable',
+        };
+    }
 }
 
 // Singleton instance

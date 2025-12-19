@@ -248,6 +248,44 @@ function createFallbackSR(currentPrice) {
     };
 }
 
+/**
+ * Check if price has broken out of grid range
+ * @param {number} currentPrice - Current ETH price
+ * @param {GridLevel[]} grid - Array of grid levels
+ * @returns {boolean} True if price is outside grid range
+ */
+function isPriceOutsideGrid(currentPrice, grid) {
+    if (!grid || grid.length === 0) return true;
+    
+    const lowestLevel = Math.min(...grid.map(g => g.price));
+    const highestLevel = Math.max(...grid.map(g => g.price));
+    
+    return currentPrice < lowestLevel || currentPrice > highestLevel;
+}
+
+/**
+ * Check if all levels on one side are filled
+ * @param {GridLevel[]} grid - Array of grid levels
+ * @param {string} side - "buy" or "sell"
+ * @returns {boolean} True if all levels on specified side are filled
+ */
+function areAllSideFilled(grid, side) {
+    const sideLevels = grid.filter(g => g.side === side);
+    if (sideLevels.length === 0) return false;
+    return sideLevels.every(g => g.filled);
+}
+
+/**
+ * Calculate S/R midpoint change percentage
+ * @param {number} newMidpoint - New midpoint value
+ * @param {number} oldMidpoint - Previous midpoint value
+ * @returns {number} Percentage change
+ */
+function calculateSRChange(newMidpoint, oldMidpoint) {
+    if (!oldMidpoint) return 100;
+    return Math.abs((newMidpoint - oldMidpoint) / oldMidpoint * 100);
+}
+
 export {
     GridLevel,
     calculateMidpoint,
@@ -257,5 +295,8 @@ export {
     getGridStats,
     formatGridDisplay,
     createFallbackSR,
+    isPriceOutsideGrid,
+    areAllSideFilled,
+    calculateSRChange,
 };
 

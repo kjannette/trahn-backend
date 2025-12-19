@@ -170,18 +170,23 @@ async function startSRScheduler() {
     srScheduler = createSRScheduler(config.DUNE_API_KEY, {
         method: config.SR_METHOD,
         lookbackDays: config.SR_LOOKBACK_DAYS,
-        cronExpression: "0 */2 * * *", // Every 2 hours
+        cronExpression: "0 * * * *", // Every 1 hour
+        srChangeThreshold: 5, // Recalculate if S/R changes >5%
+        getBotInstance: getGridBotInstance, // Provide bot access for intelligent decisions
         onGridRecalculate: async (sr) => {
             const bot = getGridBotInstance();
             if (bot) {
-                console.log("🔄 [SCHEDULER] Recalculating grid with updated S/R midpoint...");
+                console.log("[SCHEDULER] Recalculating grid with new S/R midpoint...");
                 await bot.initializeGrid();
             }
+        },
+        onSRUpdate: (sr) => {
+            // S/R data updated (logged in scheduler)
         },
     });
 
     srScheduler.start();
-    console.log("⏰ [SCHEDULER] S/R scheduler started (runs every 2 hours)");
+    console.log("[SCHEDULER] S/R scheduler started (runs every 1 hour with intelligent recalculation)");
 }
 
 /**
