@@ -77,17 +77,16 @@ export const PAPER_INITIAL_USDC = 1000;      // Starting virtual USDC balance
 export const PAPER_SLIPPAGE_PERCENT = 0.5;   // Simulated slippage range
 export const PAPER_SIMULATE_GAS = true;      // Simulate gas costs
 
-// State file paths (hardcoded - not configurable)
-const DATA_DIR = join(__dirname, "../data");
-export const STATE_FILE_PATH = join(DATA_DIR, "trahn_grid_trader.state.json");
-export const PAPER_STATE_FILE_PATH = join(DATA_DIR, "trahn_grid_trader.paper_state.json");
-
 // ============================================
-// FRONTEND DATA DIRECTORY
+// DATA DIRECTORIES
 // ============================================
 
+// Frontend data directory for JSON exports (temporary - will move to REST API)
 export const FRONTEND_DATA_DIR = process.env.FRONTEND_DATA_DIR || 
     join(__dirname, "../../frontend/public/data");
+
+// Note: Grid state and paper wallet state now stored in PostgreSQL grid_state table
+// No more JSON state files!
 
 // ============================================
 // VALIDATION

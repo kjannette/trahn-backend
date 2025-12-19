@@ -76,9 +76,6 @@ export async function startGridBot() {
         statusReportIntervalMinutes: gridConfig.STATUS_REPORT_INTERVAL_MINUTES,
         postTradeCooldownSeconds: gridConfig.POST_TRADE_COOLDOWN_SECONDS,
 
-        // State
-        stateFilePath: config.STATE_FILE_PATH,
-
         // Notifications
         sendMessageToChat: sendMessageToChat,
         
@@ -86,7 +83,6 @@ export async function startGridBot() {
         paperTrading: config.PAPER_TRADING_ENABLED,
         paperInitialETH: config.PAPER_INITIAL_ETH,
         paperInitialUSDC: config.PAPER_INITIAL_USDC,
-        paperStateFilePath: config.PAPER_STATE_FILE_PATH,
         paperSlippagePercent: config.PAPER_SLIPPAGE_PERCENT,
         paperSimulateGas: config.PAPER_SIMULATE_GAS,
         
