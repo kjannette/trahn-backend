@@ -210,15 +210,15 @@ function formatGridDisplay(grid, centerPrice, amountPerGrid) {
 
     const lines = [];
     lines.push("┌─────────────────────────────────────────────────┐");
-    lines.push("│              📊 GRID LEVELS (USD)               │");
+    lines.push("│              GRID LEVELS (USD)               │");
     lines.push("├─────────────────────────────────────────────────┤");
 
     // Sort by price descending for display (highest first)
     const sortedGrid = [...grid].sort((a, b) => b.price - a.price);
 
     for (const level of sortedGrid) {
-        const sideIcon = level.side === "sell" ? "🔴 SELL" : "🟢 BUY ";
-        const status = level.filled ? "✓" : "○";
+        const sideIcon = level.side === "sell" ? "SELL" : "BUY ";
+        const status = level.filled ? "[X]" : "[ ]";
         const priceStr = `$${level.price.toFixed(2)}`.padStart(10);
         const qtyStr = `${level.quantity.toFixed(6)} ETH`.padStart(15);
 

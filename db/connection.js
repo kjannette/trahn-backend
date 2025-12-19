@@ -39,7 +39,7 @@ export function getPool() {
             console.error("Unexpected database pool error:", err);
         });
         
-        console.log(`📊 [DB] PostgreSQL connection pool created (${DB_CONFIG.host}:${DB_CONFIG.port}/${DB_CONFIG.database})`);
+        console.log(`[DB] PostgreSQL connection pool created (${DB_CONFIG.host}:${DB_CONFIG.port}/${DB_CONFIG.database})`);
     }
     return pool;
 }
@@ -51,10 +51,10 @@ export async function testConnection() {
     try {
         const pool = getPool();
         const result = await pool.query("SELECT NOW() as time");
-        console.log(`✅ [DB] Connection successful at ${result.rows[0].time}`);
+        console.log(`[DB] Connection successful at ${result.rows[0].time}`);
         return true;
     } catch (err) {
-        console.error(`❌ [DB] Connection failed: ${err.message}`);
+        console.error(`[DB] Connection failed: ${err.message}`);
         return false;
     }
 }
@@ -74,7 +74,7 @@ export async function closePool() {
     if (pool) {
         await pool.end();
         pool = null;
-        console.log("📊 [DB] Connection pool closed");
+        console.log("[DB] Connection pool closed");
     }
 }
 

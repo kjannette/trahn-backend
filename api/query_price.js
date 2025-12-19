@@ -13,7 +13,7 @@ async function getCurrentPrice() {
         const price = parseFloat(data.ethereum.usd);
         
         console.log("\n" + "=".repeat(60));
-        console.log("💰 CURRENT ETH PRICE (CoinGecko)");
+        console.log("CURRENT ETH PRICE (CoinGecko)");
         console.log("=".repeat(60));
         console.log(`Price: $${price.toFixed(2)}`);
         console.log(`Timestamp: ${new Date().toISOString()}`);

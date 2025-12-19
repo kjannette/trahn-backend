@@ -25,11 +25,11 @@ let isRunning = false;
  */
 export async function startGridBot() {
     if (isRunning) {
-        console.log("⚠️  [BOT] Already running");
+        console.log("[BOT] Already running");
         return;
     }
 
-    console.log("\n📊 Grid Analytics Configuration:");
+    console.log("\nGrid Analytics Configuration:");
     console.log(`  Grid Levels: ${gridConfig.GRID_LEVELS}`);
     console.log(`  Grid Spacing: ${gridConfig.GRID_SPACING_PERCENT}%`);
     console.log(`  Amount per Grid: $${gridConfig.AMOUNT_PER_GRID}`);
@@ -37,10 +37,10 @@ export async function startGridBot() {
     console.log(`  Price Check Interval: ${gridConfig.PRICE_CHECK_INTERVAL_SECONDS}s`);
     console.log("======================================\n");
 
-    const modeLabel = config.PAPER_TRADING_ENABLED ? "📝 PAPER MODE" : "💰 LIVE MODE";
+    const modeLabel = config.PAPER_TRADING_ENABLED ? "PAPER MODE" : "LIVE MODE";
     sendMessageToChat(
         util.format(
-            "🚀 Starting ETH Grid Trader (ETH/%s) - %s",
+            "Starting ETH Grid Trader (ETH/%s) - %s",
             config.QUOTE_TOKEN_SYMBOL,
             modeLabel
         ),
@@ -93,20 +93,20 @@ export async function startGridBot() {
         srLookbackDays: config.SR_LOOKBACK_DAYS,
     });
 
-    console.log("🤖 [BOT] Grid trading bot initialized");
+    console.log("[BOT] Grid trading bot initialized");
     
     // Initialize async state (load from database)
     await bot.init();
-    console.log("🤖 [BOT] State loaded from database");
+    console.log("[BOT] State loaded from database");
     
     // Start bot in background (non-blocking)
     isRunning = true;
     bot.run().catch((err) => {
-        console.error("🤖 [BOT] Crashed:", err.message);
+        console.error("[BOT] Crashed:", err.message);
         isRunning = false;
     });
 
-    console.log("🤖 [BOT] Started successfully");
+    console.log("[BOT] Started successfully");
 }
 
 /**
@@ -118,7 +118,7 @@ export async function stopGridBot() {
         bot = null;
     }
     isRunning = false;
-    console.log("🤖 [BOT] Stopped");
+    console.log("[BOT] Stopped");
 }
 
 /**

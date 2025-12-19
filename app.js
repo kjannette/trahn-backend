@@ -59,7 +59,7 @@ async function main() {
         console.log(`
 ╔══════════════════════════════════════════════════════════════╗
 ║                                                              ║
-║   📝  P A P E R   T R A D I N G   M O D E   E N A B L E D   ║
+║        P A P E R   T R A D I N G   M O D E   E N A B L E D ║
 ║                                                              ║
 ║   • No real transactions will be broadcast                   ║
 ║   • Trades simulated against live market data                ║
@@ -80,10 +80,10 @@ async function main() {
     }
 
     // Test database connection
-    console.log("\n📊 [DB] Testing PostgreSQL connection...");
+    console.log("\n[DB] Testing PostgreSQL connection...");
     const dbConnected = await testConnection();
     if (!dbConnected) {
-        console.error("❌ Database connection failed. Check .env credentials:");
+        console.error("Database connection failed. Check .env credentials:");
         console.error("   Required: DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD");
         process.exit(1);
     }
@@ -102,7 +102,7 @@ async function main() {
     if (config.DUNE_API_KEY) {
         await startSRScheduler();
     } else {
-        console.log("⏰ [SCHEDULER] Skipped - no Dune API key configured");
+        console.log("[SCHEDULER] Skipped - no Dune API key configured");
     }
 
     // Handle graceful shutdown
@@ -114,7 +114,7 @@ async function main() {
         await shutdown();
     });
 
-    console.log("\n✅ All services started successfully\n");
+    console.log("\nAll services started successfully\n");
 }
 
 /**
@@ -154,8 +154,8 @@ async function startAPIServer() {
     // Start server
     return new Promise((resolve) => {
         apiServer = app.listen(API_PORT, () => {
-            console.log(`📡 [API] REST API server started on http://localhost:${API_PORT}`);
-            console.log(`📡 [API] Health check: http://localhost:${API_PORT}/health`);
+            console.log(`[API] REST API server started on http://localhost:${API_PORT}`);
+            console.log(`[API] Health check: http://localhost:${API_PORT}/health`);
             resolve();
         });
     });
@@ -193,7 +193,7 @@ async function startSRScheduler() {
  * Graceful shutdown
  */
 async function shutdown() {
-    console.log("\n🛑 Shutting down gracefully...");
+    console.log("\nShutting down gracefully...");
     
     // Stop scheduler
     if (srScheduler) {
@@ -207,7 +207,7 @@ async function shutdown() {
     if (apiServer) {
         await new Promise((resolve) => {
             apiServer.close(() => {
-                console.log("📡 [API] Server closed");
+                console.log("[API] Server closed");
                 resolve();
             });
         });
@@ -216,7 +216,7 @@ async function shutdown() {
     // Close database connections
     await closePool();
     
-    console.log("✅ Shutdown complete");
+    console.log("Shutdown complete");
     process.exit(0);
 }
 

@@ -133,13 +133,13 @@ class PaperWallet {
                 this.startTime = paperState.startTime ? new Date(paperState.startTime).getTime() : Date.now();
                 this.initialETH = paperState.initialETH ?? this.initialETH;
                 this.initialUSDC = paperState.initialUSDC ?? this.initialUSDC;
-                console.log(`📝 [PAPER] Loaded from DB: ${this.ethBalance.toFixed(6)} ETH, ${this.usdcBalance.toFixed(2)} USDC, ${this.trades.length} trades`);
+                console.log(`[PAPER] Loaded from DB: ${this.ethBalance.toFixed(6)} ETH, ${this.usdcBalance.toFixed(2)} USDC, ${this.trades.length} trades`);
             } else {
-                console.log(`📝 [PAPER] Starting fresh paper wallet: ${this.initialETH} ETH, ${this.initialUSDC} USDC`);
+                console.log(`[PAPER] Starting fresh paper wallet: ${this.initialETH} ETH, ${this.initialUSDC} USDC`);
                 await this.gridStateController.initializePaperWallet(this.initialETH, this.initialUSDC);
             }
         } catch (err) {
-            console.error(`📝 [PAPER] Failed to load paper state: ${err.message}`);
+            console.error(`[PAPER] Failed to load paper state: ${err.message}`);
         }
     }
 
@@ -152,7 +152,7 @@ class PaperWallet {
                 trades: this.trades,
             });
         } catch (err) {
-            console.error(`📝 [PAPER] Failed to save paper state: ${err.message}`);
+            console.error(`[PAPER] Failed to save paper state: ${err.message}`);
         }
     }
 
@@ -232,7 +232,7 @@ class PaperWallet {
         this.totalGasSpent = 0;
         this.startTime = Date.now();
         await this.saveState();
-        console.log("📝 [PAPER] Paper wallet reset to initial state");
+        console.log("[PAPER] Paper wallet reset to initial state");
     }
 }
 
@@ -261,7 +261,7 @@ class TrahnGridTradingBot {
         if (this.paperTrading) {
             // Paper trading mode - no real private key needed
             this.privateKey = Buffer.alloc(32); // Dummy key
-            console.log("📝 [PAPER] Paper trading mode - private key not required");
+            console.log("[PAPER] Paper trading mode - private key not required");
         } else {
             // Live trading mode - validate private key
             if (!options.privateKey || !options.privateKey.startsWith("0x")) {
@@ -332,17 +332,17 @@ class TrahnGridTradingBot {
                 lookbackDays: this.srLookbackDays,
                 refreshHours: this.srRefreshHours,
             });
-            console.log(`📊 [S/R] Dune Analytics configured: ${this.srMethod} method, ${this.srLookbackDays}-day lookback, ${this.srRefreshHours}h refresh`);
+            console.log(`[S/R] Dune Analytics configured: ${this.srMethod} method, ${this.srLookbackDays}-day lookback, ${this.srRefreshHours}h refresh`);
         } else {
             this.duneApi = null;
-            console.log("📊 [S/R] Dune API key not set - using fallback (current price as midpoint)");
+            console.log("[S/R] Dune API key not set - using fallback (current price as midpoint)");
         }
 
         // Controllers for data persistence
         this.priceController = getPriceController();
         this.tradeController = getTradeController();
         this.gridStateController = getGridStateController();
-        console.log("📈 [DB] Data controllers initialized");
+        console.log("[DB] Data controllers initialized");
 
         // State loaded via async init()
     }
@@ -436,7 +436,7 @@ class TrahnGridTradingBot {
         // Paper trading mode - return virtual balance
         if (this.paperTrading) {
             const balance = this.paperWallet.usdcBalance;
-            console.log(`📝 [PAPER] ${this.quoteTokenSymbol} balance: ${balance.toFixed(2)}`);
+            console.log(`[PAPER] ${this.quoteTokenSymbol} balance: ${balance.toFixed(2)}`);
             return balance;
         }
         
@@ -455,7 +455,7 @@ class TrahnGridTradingBot {
         // Paper trading mode - return virtual balance
         if (this.paperTrading) {
             const balance = this.paperWallet.ethBalance;
-            console.log(`📝 [PAPER] ETH balance: ${balance.toFixed(6)}`);
+            console.log(`[PAPER] ETH balance: ${balance.toFixed(6)}`);
             return balance;
         }
         
@@ -477,7 +477,7 @@ class TrahnGridTradingBot {
      */
     async fetchSupportResistance() {
         if (!this.duneApi) {
-            console.log("📊 [S/R] No Dune API - using current price as midpoint");
+            console.log("[S/R] No Dune API - using current price as midpoint");
             const currentPrice = await this.fetchETHPrice();
             return createFallbackSR(currentPrice);
         }
@@ -488,8 +488,8 @@ class TrahnGridTradingBot {
             this.lastSRRefresh = Date.now();
             return sr;
         } catch (err) {
-            console.error(`📊 [S/R] Dune fetch failed: ${err.message}`);
-            console.log("📊 [S/R] Falling back to current price as midpoint");
+            console.error(`[S/R] Dune fetch failed: ${err.message}`);
+            console.log("[S/R] Falling back to current price as midpoint");
             
             const currentPrice = await this.fetchETHPrice();
             return createFallbackSR(currentPrice);
@@ -527,7 +527,7 @@ class TrahnGridTradingBot {
 
         // Log S/R info
         this.sendMessageToChat(
-            `📊 S/R Analysis (${sr.method}, ${sr.lookbackDays}d): Support $${sr.support.toFixed(2)} | Resistance $${sr.resistance.toFixed(2)} | Midpoint $${sr.midpoint.toFixed(2)}`,
+            `S/R Analysis (${sr.method}, ${sr.lookbackDays}d): Support $${sr.support.toFixed(2)} | Resistance $${sr.resistance.toFixed(2)} | Midpoint $${sr.midpoint.toFixed(2)}`,
             "info"
         );
         
@@ -584,7 +584,7 @@ class TrahnGridTradingBot {
             const gasCostWei = gasPriceWithMultiplier * this.gasLimit;
             return parseFloat(this.web3.utils.fromWei(gasCostWei.toString(), "ether"));
         } catch (err) {
-            console.error("📝 [PAPER] Failed to estimate gas, using default:", err.message);
+            console.error("[PAPER] Failed to estimate gas, using default:", err.message);
             return 0.005; // Default fallback ~0.005 ETH
         }
     }
@@ -593,7 +593,7 @@ class TrahnGridTradingBot {
         // Buy ETH with USDC
         const ethAmount = level.quantity;
         const usdcAmount = ethAmount * currentPrice; // USDC needed
-        const prefix = this.paperTrading ? "📝 [PAPER] " : "";
+        const prefix = this.paperTrading ? "[PAPER] " : "";
         
         this.sendMessageToChat(
             util.format(
@@ -638,7 +638,7 @@ class TrahnGridTradingBot {
                     gasCost: gasCost,
                 });
                 
-                console.log(`📝 [PAPER] BUY executed: ${actualETHReceived.toFixed(6)} ETH for ${usdcAmount.toFixed(2)} ${this.quoteTokenSymbol} (slippage: ${(slippage * 100).toFixed(3)}%, gas: ${gasCost.toFixed(6)} ETH)`);
+                console.log(`[PAPER] BUY executed: ${actualETHReceived.toFixed(6)} ETH for ${usdcAmount.toFixed(2)} ${this.quoteTokenSymbol} (slippage: ${(slippage * 100).toFixed(3)}%, gas: ${gasCost.toFixed(6)} ETH)`);
                 
                 // Simulate result
                 result = await this.swapUSDCForETH(usdcAmount, ethAmount);
@@ -683,7 +683,7 @@ class TrahnGridTradingBot {
         // Sell ETH for USDC
         const ethAmount = level.quantity;
         const expectedUSDC = ethAmount * currentPrice;
-        const prefix = this.paperTrading ? "📝 [PAPER] " : "";
+        const prefix = this.paperTrading ? "[PAPER] " : "";
         
         this.sendMessageToChat(
             util.format(
@@ -728,7 +728,7 @@ class TrahnGridTradingBot {
                     gasCost: gasCost,
                 });
                 
-                console.log(`📝 [PAPER] SELL executed: ${ethAmount.toFixed(6)} ETH for ${actualUSDCReceived.toFixed(2)} ${this.quoteTokenSymbol} (slippage: ${(slippage * 100).toFixed(3)}%, gas: ${gasCost.toFixed(6)} ETH)`);
+                console.log(`[PAPER] SELL executed: ${ethAmount.toFixed(6)} ETH for ${actualUSDCReceived.toFixed(2)} ${this.quoteTokenSymbol} (slippage: ${(slippage * 100).toFixed(3)}%, gas: ${gasCost.toFixed(6)} ETH)`);
                 
                 // Simulate result
                 result = await this.swapETHForUSDC(ethAmount);
@@ -1068,7 +1068,7 @@ class TrahnGridTradingBot {
         const pendingBuys = this.grid.filter(l => l.side === "buy" && !l.filled).length;
         const pendingSells = this.grid.filter(l => l.side === "sell" && !l.filled).length;
         
-        const prefix = this.paperTrading ? "📝 [PAPER] " : "";
+        const prefix = this.paperTrading ? "[PAPER] " : "";
         
         this.sendMessageToChat(
             util.format(
@@ -1097,7 +1097,7 @@ class TrahnGridTradingBot {
             
             this.sendMessageToChat(
                 util.format(
-                    "📊 [PAPER P&L] Initial: $%s → Current: $%s | P&L: %s$%s (%s%s%%) | " +
+                    "[PAPER P&L] Initial: $%s → Current: $%s | P&L: %s$%s (%s%s%%) | " +
                     "Gas spent: %s ETH ($%s) | Running: %sh",
                     stats.initialValueUSD.toFixed(2),
                     stats.currentValueUSD.toFixed(2),
@@ -1118,7 +1118,7 @@ class TrahnGridTradingBot {
 
     shutdown() {
         this.running = false;
-        console.log("📈 [DB] Shutting down gracefully");
+        console.log("[DB] Shutting down gracefully");
     }
 
     // ==================== Utility Methods ====================
@@ -1141,7 +1141,7 @@ class TrahnGridTradingBot {
         console.log("");
         
         for (const level of this.grid) {
-            const status = level.filled ? "✓" : "○";
+            const status = level.filled ? "[X]" : "[ ]";
             const arrow = level.side === "buy" ? "↓" : "↑";
             console.log(
                 `  ${status} [${level.index}] ${arrow} ${level.side.toUpperCase().padEnd(4)} @ $${level.price.toFixed(2)} (${level.quantity.toFixed(6)} ETH)`

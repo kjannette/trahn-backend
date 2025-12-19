@@ -21,8 +21,7 @@ export const BOT_NAME = "TrahnGridTrader";
 export function getChatSender(webhookURL = WEBHOOK_URL, botName = BOT_NAME) {
     return async (msg, level = "info") => {
         const timestamp = new Date().toISOString();
-        const emoji = getEmoji(level);
-        const formattedMsg = `${emoji} [${botName}] ${msg}`;
+        const formattedMsg = `[${botName}] ${msg}`;
         
         console.log(`[${timestamp}] ${formattedMsg}`);
         
@@ -48,19 +47,8 @@ export function getChatSender(webhookURL = WEBHOOK_URL, botName = BOT_NAME) {
  * Get emoji based on log level
  */
 function getEmoji(level) {
-    const emojis = {
-        info: "ℹ️",
-        success: "✅",
-        warning: "⚠️",
-        error: "❌",
-        trade: "💰",
-        buy: "🟢",
-        sell: "🔴",
-        grid: "📊",
-        startup: "🚀",
-        shutdown: "🛑",
-    };
-    return emojis[level] || "📌";
+    // Emojis removed per user request
+    return "";
 }
 
 /**

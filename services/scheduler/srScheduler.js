@@ -37,13 +37,13 @@ export class SRScheduler {
      */
     start() {
         if (this.running) {
-            console.log("⏰ [SR-SCHEDULER] Already running");
+            console.log("[SR-SCHEDULER] Already running");
             return;
         }
 
         // Initial S/R fetch on startup
         this.fetchAndProcessSR().catch(err => {
-            console.error("⏰ [SR-SCHEDULER] Initial S/R fetch failed:", err.message);
+            console.error("[SR-SCHEDULER] Initial S/R fetch failed:", err.message);
         });
 
         // Schedule recurring job

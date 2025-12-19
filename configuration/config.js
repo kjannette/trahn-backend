@@ -106,7 +106,7 @@ export function validateConfig() {
     
     // Dune API validation (warn only, not required)
     if (!DUNE_API_KEY) {
-        console.warn("⚠️  DUNE_API_KEY not set - will use current price for grid center (fallback mode)");
+        console.warn("DUNE_API_KEY not set - will use current price for grid center (fallback mode)");
     }
     
     return {
@@ -120,15 +120,15 @@ export function printConfig() {
     
     if (PAPER_TRADING_ENABLED) {
         console.log("════════════════════════════════════════");
-        console.log("  📝 PAPER TRADING MODE ENABLED");
-        console.log("  📝 No real transactions will execute");
+        console.log("  PAPER TRADING MODE ENABLED");
+        console.log("  No real transactions will execute");
         console.log("════════════════════════════════════════");
         console.log(`Paper Initial ETH: ${PAPER_INITIAL_ETH}`);
         console.log(`Paper Initial ${QUOTE_TOKEN_SYMBOL}: ${PAPER_INITIAL_USDC}`);
         console.log(`Paper Slippage: 0-${PAPER_SLIPPAGE_PERCENT}%`);
         console.log(`Paper Gas Simulation: ${PAPER_SIMULATE_GAS ? "enabled" : "disabled"}`);
     } else {
-        console.log("  💰 LIVE TRADING MODE");
+        console.log("  LIVE TRADING MODE");
     }
     
     console.log("--------------------------------------");
@@ -137,10 +137,10 @@ export function printConfig() {
     console.log(`Trading Pair: ETH/${QUOTE_TOKEN_SYMBOL}`);
     console.log(`Quote Token: ${QUOTE_TOKEN_SYMBOL} (${QUOTE_TOKEN_ADDRESS.slice(0, 10)}...)`);
     console.log("--------------------------------------");
-    console.log("📊 Support/Resistance Configuration:");
+    console.log("Support/Resistance Configuration:");
     console.log(`  S/R Method: ${SR_METHOD} (high/low)`);
     console.log(`  S/R Refresh: every ${SR_REFRESH_HOURS} hours`);
     console.log(`  S/R Lookback: ${SR_LOOKBACK_DAYS} days`);
-    console.log(`  Dune API: ${DUNE_API_KEY ? "✓ configured" : "✗ not set (fallback mode)"}`);
+    console.log(`  Dune API: ${DUNE_API_KEY ? "configured" : "not set (fallback mode)"}`);
     console.log("======================================");
 }

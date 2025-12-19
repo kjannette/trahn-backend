@@ -57,7 +57,7 @@ class DuneApi {
             throw new Error(`Dune did not return an execution ID. Response: ${JSON.stringify(executeResult)}`);
         }
 
-        console.log(`📊 [DUNE] Query submitted, execution ID: ${executionId}`);
+        console.log(`[DUNE] Query submitted, execution ID: ${executionId}`);
 
         // Step 2: Poll for results
         const maxAttempts = 30;
@@ -74,7 +74,7 @@ class DuneApi {
             );
 
             if (!statusResponse.ok) {
-                console.warn(`📊 [DUNE] Status check failed, retrying...`);
+                console.warn(`[DUNE] Status check failed, retrying...`);
                 continue;
             }
 
@@ -100,7 +100,7 @@ class DuneApi {
                 throw new Error(`Dune query failed: ${statusResult.error || "Unknown error"}`);
             }
 
-            console.log(`📊 [DUNE] Query state: ${state}, waiting...`);
+            console.log(`[DUNE] Query state: ${state}, waiting...`);
         }
 
         throw new Error("Dune query timed out after 60 seconds");
@@ -168,7 +168,7 @@ class DuneApi {
         // DUNE API RAW RESPONSE LOGGING
         // ============================================
         console.log("\n" + "=".repeat(60));
-        console.log("📊 DUNE API RAW RESPONSE:");
+        console.log("DUNE API RAW RESPONSE:");
         console.log("=".repeat(60));
         console.log(JSON.stringify(row, null, 2));
         console.log("=".repeat(60) + "\n");
@@ -197,7 +197,7 @@ class DuneApi {
         this.cachedResult = result;
         this.lastFetch = Date.now();
 
-        console.log(`📊 [DUNE] S/R fetched successfully:`);
+        console.log(`[DUNE] S/R fetched successfully:`);
         console.log(`   Support: $${result.support.toFixed(2)}`);
         console.log(`   Resistance: $${result.resistance.toFixed(2)}`);
         console.log(`   Midpoint: $${result.midpoint.toFixed(2)}`);
