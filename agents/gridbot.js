@@ -33,7 +33,9 @@ import IUniswapV2Router02 from "@uniswap/v2-periphery/build/IUniswapV2Router02.j
 import { sleep, sleepSeconds } from "../utilities/sleep.js";
 import * as config from "../configuration/config.js";
 import { DuneApi } from "../api/duneApi.js";
-import { getHistoryStore } from "../data/historyStore.js";
+import { getPriceController } from "../controllers/priceController.js";
+import { getTradeController } from "../controllers/tradeController.js";
+import { getGridStateController } from "../controllers/gridStateController.js";
 import {
     GridLevel,
     calculateMidpoint,
@@ -100,10 +102,11 @@ const ERC20_ABI = [
 /**
  * PaperWallet - Virtual wallet for paper trading simulation
  * Tracks simulated ETH and USDC balances, trade history, and metrics
+ * Uses PostgreSQL for state persistence
  */
 class PaperWallet {
-    constructor(initialETH, initialUSDC, stateFilePath) {
-        this.stateFilePath = stateFilePath;
+    constructor(initialETH, initialUSDC, gridStateController) {
+        this.gridStateController = gridStateController;
         this.initialETH = initialETH;
         this.initialUSDC = initialUSDC;
         this.ethBalance = initialETH;
@@ -111,49 +114,49 @@ class PaperWallet {
         this.trades = [];
         this.totalGasSpent = 0;
         this.startTime = Date.now();
-        this.loadState();
+        // State loaded via async init()
     }
 
-    loadState() {
+    async init() {
+        await this.loadState();
+    }
+
+    async loadState() {
         try {
-            if (fs.existsSync(this.stateFilePath)) {
-                const data = fs.readFileSync(this.stateFilePath, "utf8");
-                const state = JSON.parse(data);
-                this.ethBalance = state.ethBalance ?? this.initialETH;
-                this.usdcBalance = state.usdcBalance ?? this.initialUSDC;
-                this.trades = state.trades || [];
-                this.totalGasSpent = state.totalGasSpent || 0;
-                this.startTime = state.startTime || Date.now();
-                this.initialETH = state.initialETH ?? this.initialETH;
-                this.initialUSDC = state.initialUSDC ?? this.initialUSDC;
-                console.log(`📝 [PAPER] Loaded state: ${this.ethBalance.toFixed(6)} ETH, ${this.usdcBalance.toFixed(2)} USDC, ${this.trades.length} trades`);
+            const paperState = await this.gridStateController.getPaperWallet();
+            
+            if (paperState && paperState.ethBalance !== null) {
+                this.ethBalance = paperState.ethBalance ?? this.initialETH;
+                this.usdcBalance = paperState.usdcBalance ?? this.initialUSDC;
+                this.trades = paperState.trades || [];
+                this.totalGasSpent = paperState.totalGasSpent || 0;
+                this.startTime = paperState.startTime ? new Date(paperState.startTime).getTime() : Date.now();
+                this.initialETH = paperState.initialETH ?? this.initialETH;
+                this.initialUSDC = paperState.initialUSDC ?? this.initialUSDC;
+                console.log(`📝 [PAPER] Loaded from DB: ${this.ethBalance.toFixed(6)} ETH, ${this.usdcBalance.toFixed(2)} USDC, ${this.trades.length} trades`);
             } else {
                 console.log(`📝 [PAPER] Starting fresh paper wallet: ${this.initialETH} ETH, ${this.initialUSDC} USDC`);
+                await this.gridStateController.initializePaperWallet(this.initialETH, this.initialUSDC);
             }
         } catch (err) {
             console.error(`📝 [PAPER] Failed to load paper state: ${err.message}`);
         }
     }
 
-    saveState() {
+    async saveState() {
         try {
-            const state = {
+            await this.gridStateController.updatePaperWallet({
                 ethBalance: this.ethBalance,
                 usdcBalance: this.usdcBalance,
-                trades: this.trades,
                 totalGasSpent: this.totalGasSpent,
-                startTime: this.startTime,
-                initialETH: this.initialETH,
-                initialUSDC: this.initialUSDC,
-                lastUpdate: Date.now(),
-            };
-            fs.writeFileSync(this.stateFilePath, JSON.stringify(state, null, 2));
+                trades: this.trades,
+            });
         } catch (err) {
             console.error(`📝 [PAPER] Failed to save paper state: ${err.message}`);
         }
     }
 
-    recordTrade(tradeData) {
+    async recordTrade(tradeData) {
         const trade = {
             id: this.trades.length + 1,
             timestamp: new Date().toISOString(),
@@ -164,7 +167,7 @@ class PaperWallet {
             },
         };
         this.trades.push(trade);
-        this.saveState();
+        await this.saveState();
         return trade;
     }
 
@@ -174,23 +177,23 @@ class PaperWallet {
     }
 
     // Buy ETH with USDC
-    executeBuy(usdcAmount, ethAmount) {
+    async executeBuy(usdcAmount, ethAmount) {
         if (this.usdcBalance < usdcAmount) {
             throw new Error(`Insufficient USDC: have ${this.usdcBalance.toFixed(2)}, need ${usdcAmount.toFixed(2)}`);
         }
         this.usdcBalance -= usdcAmount;
         this.ethBalance += ethAmount;
-        this.saveState();
+        await this.saveState();
     }
 
     // Sell ETH for USDC
-    executeSell(ethAmount, usdcAmount) {
+    async executeSell(ethAmount, usdcAmount) {
         if (this.ethBalance < ethAmount) {
             throw new Error(`Insufficient ETH: have ${this.ethBalance.toFixed(6)}, need ${ethAmount.toFixed(6)}`);
         }
         this.ethBalance -= ethAmount;
         this.usdcBalance += usdcAmount;
-        this.saveState();
+        await this.saveState();
     }
 
     getStats(currentETHPrice) {
@@ -222,13 +225,13 @@ class PaperWallet {
         };
     }
 
-    reset() {
+    async reset() {
         this.ethBalance = this.initialETH;
         this.usdcBalance = this.initialUSDC;
         this.trades = [];
         this.totalGasSpent = 0;
         this.startTime = Date.now();
-        this.saveState();
+        await this.saveState();
         console.log("📝 [PAPER] Paper wallet reset to initial state");
     }
 }
@@ -244,6 +247,9 @@ class PaperWallet {
  */
 class TrahnGridTradingBot {
     constructor(options) {
+        // Store options for later use
+        this.options = options;
+        
         // Paper trading mode
         this.paperTrading = options.paperTrading || false;
         this.paperSlippagePercent = options.paperSlippagePercent || 0.5;
@@ -295,8 +301,7 @@ class TrahnGridTradingBot {
         this.statusReportIntervalMinutes = options.statusReportIntervalMinutes || 60;
         this.postTradeCooldownSeconds = options.postTradeCooldownSeconds || 60;
 
-        // State
-        this.stateFilePath = options.stateFilePath;
+        // State (now in PostgreSQL)
         this.grid = [];
         this.running = false;
         this.lastStatusReportTime = new Date(0);
@@ -312,15 +317,6 @@ class TrahnGridTradingBot {
 
         // Notification callback
         this.sendMessageToChat = options.sendMessageToChat || console.log;
-        
-        // Paper wallet setup (if paper trading enabled)
-        if (this.paperTrading) {
-            this.paperWallet = new PaperWallet(
-                options.paperInitialETH || 1.0,
-                options.paperInitialUSDC || 1000,
-                options.paperStateFilePath
-            );
-        }
 
         // Dune Analytics setup for S/R calculation
         this.duneApiKey = options.duneApiKey || "";
@@ -342,48 +338,68 @@ class TrahnGridTradingBot {
             console.log("📊 [S/R] Dune API key not set - using fallback (current price as midpoint)");
         }
 
-        // History store for frontend charting
-        this.historyStore = getHistoryStore();
-        console.log("📈 [HISTORY] History store initialized for frontend charting");
+        // Controllers for data persistence
+        this.priceController = getPriceController();
+        this.tradeController = getTradeController();
+        this.gridStateController = getGridStateController();
+        console.log("📈 [DB] Data controllers initialized");
 
-        // Initialize state
-        this.loadState();
+        // State loaded via async init()
+    }
+
+    /**
+     * Async initialization - must be called after constructor
+     * Loads state from database
+     */
+    async init() {
+        await this.loadState();
+        
+        // Initialize paper wallet if in paper mode
+        if (this.paperTrading) {
+            this.paperWallet = new PaperWallet(
+                this.options.paperInitialETH || 1.0,
+                this.options.paperInitialUSDC || 1000,
+                this.gridStateController
+            );
+            await this.paperWallet.init();
+        }
     }
 
     // ==================== State Management ====================
 
-    loadState() {
+    async loadState() {
         try {
-            if (fs.existsSync(this.stateFilePath)) {
-                const data = fs.readFileSync(this.stateFilePath, "utf8");
-                const state = JSON.parse(data);
+            const state = await this.gridStateController.getActiveState();
+            
+            if (state && state.grid_levels_json) {
+                // JSONB is already parsed by pg driver
+                const gridData = state.grid_levels_json;
+                this.grid = gridData.map(g => GridLevel.fromJSON(g));
+                this.tradesExecuted = state.trades_executed || 0;
+                this.totalProfit = parseFloat(state.total_profit || 0);
+                this.basePrice = parseFloat(state.base_price || this.basePrice);
+                this.lastSRRefresh = state.last_sr_refresh ? new Date(state.last_sr_refresh).getTime() : null;
                 
-                if (state.grid && Array.isArray(state.grid)) {
-                    this.grid = state.grid.map(g => GridLevel.fromJSON(g));
-                }
-                this.tradesExecuted = state.tradesExecuted || 0;
-                this.totalProfit = state.totalProfit || 0;
-                this.basePrice = state.basePrice || this.basePrice;
-                
-                console.log(`Loaded state: ${this.grid.length} grid levels, ${this.tradesExecuted} trades`);
+                console.log(`Loaded state from DB: ${this.grid.length} grid levels, ${this.tradesExecuted} trades`);
+            } else {
+                console.log("No existing state found in DB - will initialize fresh");
             }
         } catch (err) {
-            console.error(`Failed to load state: ${err.message}`);
+            console.error(`Failed to load state from DB: ${err.message}`);
         }
     }
 
-    saveState() {
+    async saveState() {
         try {
-            const state = {
-                grid: this.grid.map(g => g.toJSON()),
+            await this.gridStateController.saveGridState({
+                basePrice: this.basePrice,
+                gridLevelsJson: this.grid.map(g => g.toJSON()),
                 tradesExecuted: this.tradesExecuted,
                 totalProfit: this.totalProfit,
-                basePrice: this.basePrice,
-                lastUpdate: Date.now(),
-            };
-            fs.writeFileSync(this.stateFilePath, JSON.stringify(state, null, 2));
+                lastSRRefresh: this.lastSRRefresh ? new Date(this.lastSRRefresh) : null,
+            });
         } catch (err) {
-            console.error(`Failed to save state: ${err.message}`);
+            console.error(`Failed to save state to DB: ${err.message}`);
         }
     }
 
@@ -404,8 +420,8 @@ class TrahnGridTradingBot {
             
             this.lastETHPrice = price;
             
-            // Record price for frontend charting
-            this.historyStore.recordPrice(price);
+            // Record price to database
+            await this.priceController.recordPrice(price, new Date());
             
             return price;
         } catch (err) {
@@ -523,7 +539,7 @@ class TrahnGridTradingBot {
             amountPerGrid: this.amountPerGrid,
         });
 
-        this.saveState();
+        await this.saveState();
         
         this.sendMessageToChat(
             util.format(
@@ -607,11 +623,11 @@ class TrahnGridTradingBot {
                 }
                 
                 // Execute paper trade: spend USDC, receive ETH
-                this.paperWallet.executeBuy(usdcAmount, actualETHReceived);
+                await this.paperWallet.executeBuy(usdcAmount, actualETHReceived);
                 this.paperWallet.deductGas(gasCost);
                 
                 // Record trade in paper wallet
-                const trade = this.paperWallet.recordTrade({
+                const trade = await this.paperWallet.recordTrade({
                     side: "buy",
                     gridLevel: level.index,
                     triggerPrice: level.price,
@@ -639,18 +655,22 @@ class TrahnGridTradingBot {
             this.tradesExecuted++;
             this.saveState();
             
-            // Record trade for frontend charting
-            this.historyStore.recordTrade({
-                timestamp: Date.now(),
+            // Record trade to database
+            await this.tradeController.recordTrade({
+                timestamp: new Date(),
                 side: "buy",
                 price: currentPrice,
                 quantity: ethAmount,
                 gridLevel: level.index,
                 usdValue: usdcAmount,
+                txHash: result.transactionHash,
+                isPaperTrade: this.paperTrading,
+                slippagePercent: result.paperTrade?.slippagePercent || null,
+                gasCostEth: result.paperTrade?.gasCost || null,
             });
             
             // Reset opposite level for potential reverse trade
-            this.maybeCreateOppositeLevel(level);
+            await this.maybeCreateOppositeLevel(level);
             
             return result;
         } catch (err) {
@@ -693,11 +713,11 @@ class TrahnGridTradingBot {
                 }
                 
                 // Execute paper trade: spend ETH, receive USDC
-                this.paperWallet.executeSell(ethAmount, actualUSDCReceived);
+                await this.paperWallet.executeSell(ethAmount, actualUSDCReceived);
                 this.paperWallet.deductGas(gasCost);
                 
                 // Record trade in paper wallet
-                const trade = this.paperWallet.recordTrade({
+                const trade = await this.paperWallet.recordTrade({
                     side: "sell",
                     gridLevel: level.index,
                     triggerPrice: level.price,
@@ -725,18 +745,22 @@ class TrahnGridTradingBot {
             this.tradesExecuted++;
             this.saveState();
             
-            // Record trade for frontend charting
-            this.historyStore.recordTrade({
-                timestamp: Date.now(),
+            // Record trade to database
+            await this.tradeController.recordTrade({
+                timestamp: new Date(),
                 side: "sell",
                 price: currentPrice,
                 quantity: ethAmount,
                 gridLevel: level.index,
                 usdValue: expectedUSDC,
+                txHash: result.transactionHash,
+                isPaperTrade: this.paperTrading,
+                slippagePercent: result.paperTrade?.slippagePercent || null,
+                gasCostEth: result.paperTrade?.gasCost || null,
             });
             
             // Reset opposite level for potential reverse trade
-            this.maybeCreateOppositeLevel(level);
+            await this.maybeCreateOppositeLevel(level);
             
             return result;
         } catch (err) {
@@ -745,7 +769,7 @@ class TrahnGridTradingBot {
         }
     }
 
-    maybeCreateOppositeLevel(filledLevel) {
+    async maybeCreateOppositeLevel(filledLevel) {
         // Use strategy module to get opposite level index
         const oppositeIndex = getOppositeLevelIndex(filledLevel, this.grid.length);
         
@@ -755,7 +779,7 @@ class TrahnGridTradingBot {
                 adjacentLevel.filled = false;
                 adjacentLevel.filledAt = null;
                 adjacentLevel.txHash = null;
-                this.saveState();
+                await this.saveState();
                 
                 console.log(`Reset grid level ${oppositeIndex} for opposite trade`);
             }
@@ -1084,9 +1108,7 @@ class TrahnGridTradingBot {
 
     shutdown() {
         this.running = false;
-        // Flush any pending history data
-        this.historyStore.flush();
-        console.log("📈 [HISTORY] Final flush completed");
+        console.log("📈 [DB] Shutting down gracefully");
     }
 
     // ==================== Utility Methods ====================
